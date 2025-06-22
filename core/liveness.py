@@ -1,21 +1,19 @@
-import json
-import re
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, Optional, Union
 import base64
 import io
+import json
+import re
 import uuid
+from dataclasses import dataclass, asdict
+from enum import Enum
+from pathlib import Path
+from typing import Dict, Optional, Union
 
 import cv2
 import numpy as np
-from PIL import Image, ImageEnhance
 import requests
-from dataclasses import dataclass, asdict
-from enum import Enum
+from PIL import Image, ImageEnhance
 
 from config import LLM_CONFIG, IMAGE_CONFIG, DECISION_METRICS, PROCESSED_DIR
-
 from logger import Logger
 
 logger = Logger.get_logger()
@@ -48,12 +46,6 @@ class LivenessData:
     fake_type: Optional[FakeType] = None
     reasoning: Optional[str] = None
     technical_analysis: Optional[Dict] = None
-    timestamp: str = None
-    processed_image_path: Optional[str] = None
-
-    def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.now().isoformat()
 
     def to_json(self) -> str:
         """Convert to JSON string"""
@@ -156,7 +148,7 @@ class FaceImagePreprocessor:
                 y = max(0, y - padding)
                 w = min(image.shape[1] - x, w + 2 * padding)
                 h = min(image.shape[0] - y, h + 2 * padding)
-                return image[y:y+h, x:x+w]
+                return image[y:y + h, x:x + w]
 
             logger.warning("No face detected in image")
             return None
@@ -185,7 +177,8 @@ class LivenessVLMClient:
             raise ConnectionError(
                 f"Cannot connect to Ollama at {self.base_url}")
 
-    def _encode_image(self, image: Image.Image) -> str:
+    @staticmethod
+    def _encode_image(image: Image.Image) -> str:
         """Encode PIL Image to base64 string"""
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=IMAGE_CONFIG["jpeg_quality"])
@@ -302,7 +295,7 @@ class FaceLivenessDetector:
         """Parse VLM response and extract JSON data"""
         try:
             response = response.strip()
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            json_match = re.search(r'\{.*}', response, re.DOTALL)
             if json_match:
                 json_str = json_match.group()
                 json_str = re.sub(r'[\n\r\t]', ' ', json_str)
@@ -346,7 +339,6 @@ class FaceLivenessDetector:
                 fake_type=fake_type,
                 reasoning=raw_data.get('reasoning', ''),
                 technical_analysis=raw_data.get('technical_analysis', {}),
-                processed_image_path=None
             )
         except Exception as e:
             logger.error(f"Error normalizing response: {str(e)}")
