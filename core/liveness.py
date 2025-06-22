@@ -6,14 +6,15 @@ import uuid
 from dataclasses import dataclass, asdict
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Tuple
 
 import cv2
+import mediapipe as mp
 import numpy as np
 import requests
 from PIL import Image, ImageEnhance
 
-from config import LLM_CONFIG, IMAGE_CONFIG, DECISION_METRICS, PROCESSED_DIR
+from config import LLM_CONFIG, IMAGE_CONFIG, DECISION_METRICS
 from logger import Logger
 
 logger = Logger.get_logger()
@@ -62,8 +63,81 @@ class LivenessData:
 class FaceImagePreprocessor:
     """Image preprocessing utilities for face liveness detection"""
 
+    def __init__(self):
+        self.mp_face_mesh = mp.solutions.face_mesh
+        self.mp_drawing = mp.solutions.drawing_utils
+
+    def detect_faces_with_mediapipe(self, image: np.ndarray) -> Tuple[bool, str]:
+        """
+        Detect faces in the input image using MediaPipe FaceMesh.
+
+        This method uses MediaPipe to detect faces and facial landmarks in the image.
+        It also checks for multiple face detection and returns the cropped face region.
+
+        Args:
+            image: Input image as numpy array
+
+        Returns:
+            Tuple[bool, str, Optional[np.ndarray]]: A tuple containing:
+                - is_success (bool): True if face detection was successful, False otherwise.
+                - message (str): A message describing the result or any errors encountered.
+        """
+        try:
+            h, w, _ = image.shape
+
+            with self.mp_face_mesh.FaceMesh(
+                    static_image_mode=True,  # Treat the image as a static image (no video stream)
+                    max_num_faces=3,  # Allow detection of up to 3 faces for checking multiple faces
+                    refine_landmarks=True,  # Enable more accurate landmark detection and refinement
+                    min_detection_confidence=0.5,  # Set the minimum confidence threshold for face detection
+            ) as face_mesh:
+                # Process the image, converting it from BGR to RGB as face_mesh expects RGB input
+                results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+                # If no faces are detected, return an error message indicating no face found
+                if not results.multi_face_landmarks:
+                    return False, "No face detected in the image"
+
+                # If more than one face is detected, return an error message indicating multiple faces found
+                if len(results.multi_face_landmarks) > 1:
+                    return False, "Multiple faces detected. Please ensure only one face is visible in the image"
+
+                # Extract face landmarks for the single detected face
+                face_landmarks = results.multi_face_landmarks[0]
+
+                # Get bounding box coordinates from landmarks
+                x_coords = [landmark.x * w for landmark in face_landmarks.landmark]
+                y_coords = [landmark.y * h for landmark in face_landmarks.landmark]
+
+                x_min, x_max = int(min(x_coords)), int(max(x_coords))
+                y_min, y_max = int(min(y_coords)), int(max(y_coords))
+
+                # Add padding around the face
+                padding_ratio = IMAGE_CONFIG.get("face_padding_ratio", 0.2)
+                padding_x = int((x_max - x_min) * padding_ratio)
+                padding_y = int((y_max - y_min) * padding_ratio)
+
+                # Ensure coordinates are within image bounds
+                x_min = max(0, x_min - padding_x)
+                y_min = max(0, y_min - padding_y)
+                x_max = min(w, x_max + padding_x)
+                y_max = min(h, y_max + padding_y)
+
+                # Crop the face region
+                face_region = image[y_min:y_max, x_min:x_max]
+
+                # Validate face region size
+                if face_region.shape[0] < 50 or face_region.shape[1] < 50:
+                    return False, "Detected face region is too small"
+
+                return True, "Face detection successful"
+
+        except Exception as e:
+            logger.error(f"MediaPipe face detection failed: {str(e)}")
+            return False, f"Face detection error: {str(e)}"
+
     @staticmethod
-    def enhance_face_image(image: Union[str, np.ndarray, Image.Image]) -> Image.Image:
+    def enhance_face_image(image: Union[str, np.ndarray, Image.Image], processed_dir: Path) -> Image.Image:
         """
         Enhance face image and save processed version
         """
@@ -112,7 +186,7 @@ class FaceImagePreprocessor:
 
             # Save processed image
             processed_filename = f"liveness_processed_{uuid.uuid4().hex}.jpg"
-            processed_path = PROCESSED_DIR / processed_filename
+            processed_path = processed_dir / processed_filename
             pil_image.save(processed_path, quality=IMAGE_CONFIG["jpeg_quality"])
             logger.info(f"Processed image saved to: {processed_path}")
 
@@ -121,40 +195,6 @@ class FaceImagePreprocessor:
         except Exception as e:
             logger.error(f"Image preprocessing failed: {str(e)}")
             raise
-
-    @staticmethod
-    def detect_face_region(image: np.ndarray) -> Optional[np.ndarray]:
-        """
-        Detect and crop the main face region
-
-        Args:
-            image: Input image as numpy array
-
-        Returns:
-            Cropped face region or None if not detected
-        """
-        try:
-            face_cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
-
-            if len(faces) > 0:
-                largest_face = max(faces, key=lambda x: x[2] * x[3])
-                x, y, w, h = largest_face
-                padding = int(max(w, h) * IMAGE_CONFIG["face_padding_ratio"])
-                x = max(0, x - padding)
-                y = max(0, y - padding)
-                w = min(image.shape[1] - x, w + 2 * padding)
-                h = min(image.shape[0] - y, h + 2 * padding)
-                return image[y:y + h, x:x + w]
-
-            logger.warning("No face detected in image")
-            return None
-        except Exception as e:
-            logger.error(f"Face detection failed: {str(e)}")
-            return None
 
 
 class LivenessVLMClient:
@@ -177,8 +217,7 @@ class LivenessVLMClient:
             raise ConnectionError(
                 f"Cannot connect to Ollama at {self.base_url}")
 
-    @staticmethod
-    def _encode_image(image: Image.Image) -> str:
+    def _encode_image(self, image: Image.Image) -> str:
         """Encode PIL Image to base64 string"""
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=IMAGE_CONFIG["jpeg_quality"])
@@ -349,13 +388,13 @@ class FaceLivenessDetector:
                 reasoning=f"Error processing response: {str(e)}"
             )
 
-    def detect_liveness(self, image_path: str, focus_on_face: bool = True) -> LivenessData:
+    def detect_liveness(self, image_path: str, processed_dir: Path) -> LivenessData:
         """
         Detect face liveness from an image
 
         Args:
             image_path: Path to the image file
-            focus_on_face: Crop to face region first
+            processed_dir: Path to save the processed image
 
         Returns:
             LivenessData object with detection results
@@ -369,12 +408,30 @@ class FaceLivenessDetector:
             if image is None:
                 raise ValueError(f"Could not load image: {image_path}")
 
-            if focus_on_face:
-                face_region = self.preprocessor.detect_face_region(image)
-                image = face_region if face_region is not None else image
-                logger.info("Face region detection attempted")
+            face_success, face_message = self.preprocessor.detect_faces_with_mediapipe(image)
 
-            enhanced_image = self.preprocessor.enhance_face_image(image)
+            if not face_success:
+                # Return early with fake classification for multiple faces or no face
+                logger.warning(f"Face detection failed: {face_message}")
+                return LivenessData(
+                    is_live=False,
+                    confidence=95.0,  # High confidence in rejection
+                    result=LivenessResult.FAKE,
+                    fake_type=FakeType.UNKNOWN_FAKE,
+                    reasoning=f"Face detection validation failed: {face_message}. "
+                              f"For liveness detection, exactly one clear face must be visible in the image.",
+                    technical_analysis={
+                        "face_detection_status": "failed",
+                        "face_detection_message": face_message,
+                        "multiple_faces_detected": "multiple faces" in face_message.lower(),
+                        "no_face_detected": "no face" in face_message.lower(),
+                        "quality_assessment": "invalid_input"
+                    }
+                )
+
+            logger.info("Face region successfully detected")
+
+            enhanced_image = self.preprocessor.enhance_face_image(image, processed_dir)
             prompt = self.prompt_generator.get_comprehensive_liveness_prompt()
             vlm_response = self.vlm_client.analyze_liveness(enhanced_image, prompt)
             raw_data = self._parse_vlm_response(vlm_response)

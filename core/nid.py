@@ -119,7 +119,8 @@ class VLMClient:
             raise ConnectionError(
                 f"Cannot connect to Ollama at {self.base_url}")
 
-    def _encode_image(self, image: Image.Image) -> str:
+    @staticmethod
+    def _encode_image(image: Image.Image) -> str:
         """Encode PIL Image to base64 string"""
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=IMAGE_CONFIG["jpeg_quality"])
@@ -257,12 +258,14 @@ class NIDDataExtractor:
             logger.error(f"Failed to parse JSON response: {e}")
             return {}
 
-    def _validate_nid_number(self, nid: str) -> bool:
+    @staticmethod
+    def _validate_nid_number(nid: str) -> bool:
         """Validate NID number format"""
         clean_nid = re.sub(r'[^\d]', '', str(nid))
         return len(clean_nid) in [10, 13, 17] and clean_nid.isdigit()
 
-    def _validate_date_of_birth(self, dob: str) -> bool:
+    @staticmethod
+    def _validate_date_of_birth(dob: str) -> bool:
         """Validate date of birth format"""
         try:
             formats = ['%d/%m/%Y', '%d-%m-%Y',
@@ -275,7 +278,8 @@ class NIDDataExtractor:
         except ValueError:
             return False
 
-    def _normalize_date_format(self, date_str: str) -> str:
+    @staticmethod
+    def _normalize_date_format(date_str: str) -> str:
         """Normalize date to DD/MM/YYYY format"""
         try:
             formats = ['%d/%m/%Y', '%d-%m-%Y',
@@ -284,7 +288,8 @@ class NIDDataExtractor:
                 date_obj = datetime.strptime(str(date_str), fmt)
                 return date_obj.strftime('%d/%m/%Y')
             return str(date_str)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to normalize date format: {str(e)}")
             return str(date_str)
 
     def extract_from_single_side(self, image_path: str, side: NIDSide, processed_dir: Path) -> Dict:

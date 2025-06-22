@@ -20,10 +20,9 @@ nid_extractor = NIDDataExtractor()
 liveness_detector = FaceLivenessDetector()
 
 
-def get_date_trace_path(trace_id: str, subfolder: str) -> Path:
+def get_date_trace_path(trace_id: str, date_str: str, time_str: str, subfolder: str) -> Path:
     """Generate path with date and trace_id structure."""
-    date_str = datetime.now().strftime("%d_%m_%Y")
-    return UPLOAD_DIR / date_str / trace_id / subfolder
+    return UPLOAD_DIR / date_str / f"{time_str}_{trace_id}" / subfolder
 
 
 @app.before_request
@@ -46,6 +45,8 @@ def after_request(response):
 def nid_ocr():
     """Extract data from NID card images."""
     start_time = datetime.now()
+    date_str = datetime.now().strftime("%Y%m%d")
+    time_str = datetime.now().strftime("%H_%M_%S_%f")
     trace_id = trace_id_context.get()
     logger.info(f"Processing NID OCR request")
 
@@ -55,8 +56,8 @@ def nid_ocr():
 
     try:
         # Create directories for uploaded and processed images
-        uploaded_dir = get_date_trace_path(trace_id, "uploaded")
-        processed_dir = get_date_trace_path(trace_id, "processed")
+        uploaded_dir = get_date_trace_path(trace_id, date_str, time_str, "uploaded")
+        processed_dir = get_date_trace_path(trace_id, date_str, time_str, "processed")
         uploaded_dir.mkdir(parents=True, exist_ok=True)
         processed_dir.mkdir(parents=True, exist_ok=True)
 
@@ -105,6 +106,8 @@ def nid_ocr():
 def liveness_check():
     """Perform face liveness detection on an image."""
     start_time = datetime.now()
+    date_str = datetime.now().strftime("%Y%m%d")
+    time_str = datetime.now().strftime("%H_%M_%S_%f")
     trace_id = trace_id_context.get()
     logger.info(f"Processing liveness check request")
 
@@ -113,8 +116,10 @@ def liveness_check():
 
     try:
         # Create directory for uploaded image
-        uploaded_dir = get_date_trace_path(trace_id, "uploaded")
+        uploaded_dir = get_date_trace_path(trace_id, date_str, time_str, "uploaded")
+        processed_dir = get_date_trace_path(trace_id, date_str, time_str, "processed")
         uploaded_dir.mkdir(parents=True, exist_ok=True)
+        processed_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate unique filename
         filename = f"{image.filename.rsplit('.', 1)[0]}_{uuid.uuid4().hex}.{image.filename.rsplit('.', 1)[-1]}"
@@ -126,7 +131,7 @@ def liveness_check():
 
         # Perform liveness detection
         logger.info(f"Starting liveness detection")
-        liveness_result = liveness_detector.detect_liveness(str(image_path))
+        liveness_result = liveness_detector.detect_liveness(str(image_path), processed_dir)
         logger.info(
             f"Liveness detection completed: result={liveness_result.result.value}, confidence={liveness_result.confidence}")
 
