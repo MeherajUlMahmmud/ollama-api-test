@@ -163,8 +163,8 @@ Analyze this image of a Bangladesh National ID card (front side) and extract the
 REQUIRED FIELDS TO EXTRACT:
 1. English Name (Name field in English)
 2. Bengali Name (নাম field in Bengali)
-3. Father's Name (পিতা field in Bengali)
-4. Mother's Name (মাতা field in Bengali)
+3. Father's Name (পিতা field in Bengali - exclude 'পিতা' from the extracted name)
+4. Mother's Name (মাতা field in Bengali - exclude 'মাতা' from the extracted name)
 5. NID Number (NID NO field - exactly as shown)
 6. Date of Birth (Date of Birth field - format as DD/MM/YYYY)
 
@@ -175,13 +175,15 @@ EXTRACTION RULES:
 - For date of birth, convert to DD/MM/YYYY format if needed
 - If any field is unclear or missing, mark it as "NOT_FOUND"
 - Be extremely careful with number recognition (0 vs O, 1 vs I, etc.)
+- For Father's Name, remove 'পিতা: ' from the beginning if present
+- For Mother's Name, remove 'মাতা: ' from the beginning if present
 
 RESPONSE FORMAT (JSON):
 {
     "english_name": "exact English name from card",
     "bengali_name": "exact Bengali name",
-    "father_name": "exact father's name in Bengali",
-    "mother_name": "exact mother's name in Bengali",
+    "father_name": "exact father's name in Bengali without 'পিতা'",
+    "mother_name": "exact mother's name in Bengali without 'মাতা'",
     "nid_no": "exact NID number digits only",
     "date_of_birth": "DD/MM/YYYY format",
     "confidence": "high/medium/low based on text clarity"
@@ -208,23 +210,18 @@ EXTRACTION RULES:
 - For address, include the complete address as written
 - For blood group, extract the exact notation (A+, B+, O+, AB+, etc.)
 - If any field is unclear or missing, mark it as "NOT_FOUND"
-
-SPECIAL ADDRESS EXTRACTION RULES:
-- Look for the word "ঠিকানা" on the card
-- Extract ONLY the text that comes AFTER the "ঠিকানা" word as the address
-- The address section should contain these specific Bengali words: "বাসা/হোল্ডিং:", "গ্রাম/রাস্তা:"
-- If OCR makes mistakes and you find similar words that are close to these exact words, correct them:
+- Ensure the address ALWAYS includes these exact Bengali words: "ঠিকানা", "বাসা/হোল্ডিং:", "গ্রাম/রাস্তা:", "ডাকঘর"
+- For address, extract ONLY the text that comes AFTER the "ঠিকানা" word
+- If OCR makes mistakes and you find similar words, correct them:
   * Words similar to "ঠিকানা" → "ঠিকানা"
   * Words similar to "বাসা/হোল্ডিং:" → "বাসা/হোল্ডিং:"
   * Words similar to "গ্রাম/রাস্তা:" → "গ্রাম/রাস্তা:"
-- Common OCR errors to watch for and correct:
-  * "ঠিকানা" might be misread as "ঠিকানো", "ঠিকানন", "ঠিকানে"
-  * "বাসা/হোল্ডিং:" might be misread as "বাসা/হোল্ডিং", "বাসা/হোল্ডিংঃ", "বাসা/হোল্ডিন:"
-  * "গ্রাম/রাস্তা:" might be misread as "গ্রাম/রাস্তাঃ", "গ্রাম/রাস্তো:", "গ্রাম/রাস্তে:"
+  * Words similar to "ডাকঘর" → "ডাকঘর"
 
 RESPONSE FORMAT (JSON):
+RESPONSE FORMAT (JSON):
 {
-    "address": "complete address in Bengali",
+    "address": "complete address in Bengali starting with 'ঠিকানা: বাসা/হোল্ডিং:' followed by address details, then 'গ্রাম/রাস্তা:', then 'ডাকঘর:' followed by postal info",
     "blood_group": "blood group notation",
     "confidence": "high/medium/low based on text clarity"
 }
