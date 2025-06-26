@@ -62,9 +62,10 @@ class Helper:
         return ext.lower() in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
 
     @staticmethod
-    def error_response(message, start_time, status_code=400):
+    def api_response(message, start_time, is_success=True, data={}, status_code=200):
         return jsonify({
+            "data": data,
             "message": message,
-            "is_success": False,
+            "is_success": is_success,
             "time_taken": Helper.format_time_taken(start_time),
         }), status_code

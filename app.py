@@ -6,8 +6,11 @@ from pathlib import Path
 from flask import Flask, request, jsonify
 
 from config import UPLOAD_DIR
+from core.common.query_analyzer import QueryAnalyzer
+from core.common.query_executor import QueryExecutor
 from core.liveness import FaceLivenessDetector
 from core.nid import NIDDataExtractor
+from core.query_handler import QueryHandler
 from logger import Logger, trace_id_context
 from utils import Helper
 
@@ -18,6 +21,11 @@ app = Flask(__name__)
 # Load models at startup
 nid_extractor = NIDDataExtractor()
 liveness_detector = FaceLivenessDetector()
+
+# Initialize query system components
+query_analyzer = QueryAnalyzer()
+query_executor = QueryExecutor()
+query_handler = QueryHandler(query_analyzer=query_analyzer, query_executor=query_executor)
 
 
 def get_date_trace_path(trace_id: str, date_str: str, time_str: str, subfolder: str) -> Path:
@@ -56,8 +64,10 @@ def nid_ocr():
 
     try:
         # Create directories for uploaded and processed images
-        uploaded_dir = get_date_trace_path(trace_id, date_str, time_str, "uploaded")
-        processed_dir = get_date_trace_path(trace_id, date_str, time_str, "processed")
+        uploaded_dir = get_date_trace_path(
+            trace_id, date_str, time_str, "uploaded")
+        processed_dir = get_date_trace_path(
+            trace_id, date_str, time_str, "processed")
         uploaded_dir.mkdir(parents=True, exist_ok=True)
         processed_dir.mkdir(parents=True, exist_ok=True)
 
@@ -70,7 +80,8 @@ def nid_ocr():
         # Save uploaded images
         front_image.save(front_image_path)
         back_image.save(back_image_path)
-        logger.info(f"Saved images: front={front_image_path}, back={back_image_path}")
+        logger.info(
+            f"Saved images: front={front_image_path}, back={back_image_path}")
 
         # Extract NID data
         logger.info(f"Starting NID data extraction")
@@ -83,21 +94,24 @@ def nid_ocr():
 
         # Prepare response
         response_data = {
-            "message": "NID data extracted successfully.",
-            "is_success": True,
-            "time_taken": Helper.format_time_taken(start_time),
             "data": json.loads(nid_data.to_json()),
             "is_valid": nid_data.is_valid(),
         }
 
         logger.info(f"NID OCR request completed successfully")
-        return jsonify(response_data), 200
+        return Helper.api_response(
+            message="NID data extraction completed successfully.",
+            start_time=start_time,
+            is_success=True,
+            data=response_data
+        )
 
     except Exception as e:
         logger.error(f"NID OCR failed: {str(e)}", exc_info=True)
-        return Helper.error_response(
+        return Helper.api_response(
             message=f"NID data extraction failed: {str(e)}",
             start_time=start_time,
+            is_success=False,
             status_code=500
         )
 
@@ -116,8 +130,10 @@ def liveness_check():
 
     try:
         # Create directory for uploaded image
-        uploaded_dir = get_date_trace_path(trace_id, date_str, time_str, "uploaded")
-        processed_dir = get_date_trace_path(trace_id, date_str, time_str, "processed")
+        uploaded_dir = get_date_trace_path(
+            trace_id, date_str, time_str, "uploaded")
+        processed_dir = get_date_trace_path(
+            trace_id, date_str, time_str, "processed")
         uploaded_dir.mkdir(parents=True, exist_ok=True)
         processed_dir.mkdir(parents=True, exist_ok=True)
 
@@ -131,29 +147,78 @@ def liveness_check():
 
         # Perform liveness detection
         logger.info(f"Starting liveness detection")
-        liveness_result = liveness_detector.detect_liveness(str(image_path), processed_dir)
+        liveness_result = liveness_detector.detect_liveness(
+            str(image_path), processed_dir)
         logger.info(
             f"Liveness detection completed: result={liveness_result.result.value}, confidence={liveness_result.confidence}")
 
         # Prepare response
         response_data = {
-            "message": "Liveness check completed successfully.",
-            "is_success": True,
-            "time_taken": Helper.format_time_taken(start_time),
             "data": json.loads(liveness_result.to_json()),
             "is_reliable": liveness_result.is_reliable(),
         }
 
         logger.info(f"Liveness check request completed successfully")
-        return jsonify(response_data), 200
+        return Helper.api_response(
+            message="Liveness check completed successfully.",
+            start_time=start_time,
+            is_success=True,
+            data=response_data
+        )
 
     except Exception as e:
         logger.error(f"Liveness check failed: {str(e)}", exc_info=True)
-        return Helper.error_response(
+        return Helper.api_response(
             message=f"Liveness detection failed: {str(e)}",
             start_time=start_time,
+            is_success=False,
             status_code=500
         )
+
+
+@app.route('/api/query', methods=['POST'])
+def query():
+    """Handle general queries."""
+    start_time = datetime.now()
+    trace_id = trace_id_context.get()
+    logger.info(f"Processing query request with trace_id: {trace_id}")
+
+    try:
+        data = request.get_json()
+        if not data or 'query' not in data:
+            raise ValueError("Query parameter is missing")
+
+        query_text = data['query']
+        logger.info(f"Received query: {query_text}")
+
+        response = query_handler.handle_query(query_text)
+
+        response_data = {
+            "query": query_text,
+            "response": response,
+        }
+        logger.info(f"Query processed successfully")
+        return Helper.api_response(
+            message="Query processed successfully.",
+            start_time=start_time,
+            is_success=True,
+            data=response_data
+        )
+    except Exception as e:
+        logger.error(f"Query processing failed: {str(e)}", exc_info=True)
+        return Helper.api_response(
+            message=f"Query processing failed: {str(e)}",
+            start_time=start_time,
+            is_success=False,
+            status_code=500
+        )
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint."""
+    logger.info("Health check request received")
+    return jsonify({"status": "ok", "message": "Service is running"}), 200
 
 
 if __name__ == '__main__':
