@@ -25,18 +25,19 @@ def nid_ocr():
     trace_id = request.environ.get('trace_id')
 
     try:
-        errors = validate_nid_upload(request.files)
-        if errors:
-            return Helper.api_response(
-                message='Validation failed',
-                start_time=start_time,
-                is_success=False,
-                data={'errors': errors},
-                status_code=400
-            )
+        multipart_data = request.files  # Get the files from the request
+        # errors = validate_nid_upload(multipart_data)
+        # if errors:
+        #     return Helper.api_response(
+        #         message='Validation failed',
+        #         start_time=start_time,
+        #         is_success=False,
+        #         data={'errors': errors},
+        #         status_code=400
+        #     )
 
-        front_image = request.files['front_image']
-        back_image = request.files['back_image']
+        front_image = multipart_data['front_image']
+        back_image = multipart_data['back_image']
 
         uploaded_dir = Helper.get_date_trace_path(trace_id, date_str, time_str, "uploaded")
         processed_dir = Helper.get_date_trace_path(trace_id, date_str, time_str, "processed")

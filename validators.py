@@ -1,4 +1,7 @@
 from schema import Schema, And, SchemaError
+from werkzeug.datastructures import FileStorage
+
+from utils import Helper
 
 
 def validate_registration(data):
@@ -29,13 +32,22 @@ def validate_login(data):
 
 
 def validate_nid_upload(files):
+    # Convert ImmutableMultiDict to a regular dict
+    files_dict = {key: files[key] for key in files}
+
     schema = Schema({
-        'front_image': And(lambda x: x is not None, error='Front image is required'),
-        'back_image': And(lambda x: x is not None, error='Back image is required'),
+        'front_image': And(
+            lambda x: isinstance(x, FileStorage) and Helper.validate_image_file(x),
+            error='Front image is required and must be a valid image file (jpg, jpeg, png, gif, bmp)'
+        ),
+        'back_image': And(
+            lambda x: isinstance(x, FileStorage) and Helper.validate_image_file(x),
+            error='Back image is required and must be a valid image file (jpg, jpeg, png, gif, bmp)'
+        ),
     })
 
     try:
-        schema.validate(files)
+        schema.validate(files_dict)
         return None
     except SchemaError as e:
         return [str(e)]
