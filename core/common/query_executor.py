@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 import requests
 
-from config import LLM_CONFIG
+from config import QueryConfig
 from core.common.dataclass import QueryResult, Tool, ToolType
 from core.common.tool_registry import ToolRegistry
 from logger import Logger
@@ -233,17 +233,17 @@ Provide your response in a clear, structured format.
         self.logger.debug(f"Generated calculation prompt: {prompt[:100]}...")
 
         payload = {
-            "model": LLM_CONFIG["model"],
+            "model": QueryConfig.LLM_CONFIG["model"],
             "prompt": prompt,
             "stream": False,
-            "options": LLM_CONFIG["options"],
+            "options": QueryConfig.LLM_CONFIG["options"],
         }
 
         self.logger.debug(f"Sending calculation request to LLM service")
         response = requests.post(
-            LLM_CONFIG["base_url"],
+            QueryConfig.LLM_CONFIG["base_url"],
             json=payload,
-            timeout=LLM_CONFIG["timeout"]
+            timeout=QueryConfig.LLM_CONFIG["timeout"]
         )
         response.raise_for_status()
         result = response.json().get('response', '')
@@ -278,17 +278,17 @@ Structure your response in a readable format with appropriate sections if needed
         self.logger.debug(f"Generated general info prompt: {prompt[:100]}...")
 
         payload = {
-            "model": LLM_CONFIG["model"],
+            "model": QueryConfig.LLM_CONFIG["model"],
             "prompt": prompt,
             "stream": False,
-            "options": LLM_CONFIG["options"],
+            "options": QueryConfig.LLM_CONFIG["options"],
         }
 
         self.logger.debug(f"Sending general info request to LLM service")
         response = requests.post(
-            LLM_CONFIG["base_url"],
+            QueryConfig.LLM_CONFIG["base_url"],
             json=payload,
-            timeout=LLM_CONFIG["timeout"]
+            timeout=QueryConfig.LLM_CONFIG["timeout"]
         )
         response.raise_for_status()
         result = response.json().get('response', '')
@@ -339,17 +339,17 @@ Provide the formatted response:
             self.logger.debug(f"Generated formatting prompt: {prompt[:100]}...")
 
             payload = {
-                "model": LLM_CONFIG["model"],
+                "model": QueryConfig.LLM_CONFIG["model"],
                 "prompt": prompt,
                 "stream": False,
-                "options": LLM_CONFIG["options"],
+                "options": QueryConfig.LLM_CONFIG["options"],
             }
 
             self.logger.debug(f"Sending formatting request to LLM service")
             response = requests.post(
-                LLM_CONFIG["base_url"],
+                QueryConfig.LLM_CONFIG["base_url"],
                 json=payload,
-                timeout=LLM_CONFIG["timeout"]
+                timeout=QueryConfig.LLM_CONFIG["timeout"]
             )
             response.raise_for_status()
             formatted_response = response.json().get('response', str(raw_response))

@@ -72,7 +72,7 @@ class Helper:
         response = {
             'message': message,
             'success': is_success,
-            'duration_ms': (datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
+            'duration': Helper.format_time_taken(start_time),
         }
         if data:
             response['data'] = data

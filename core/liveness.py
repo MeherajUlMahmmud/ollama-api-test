@@ -14,7 +14,7 @@ import numpy as np
 import requests
 from PIL import Image, ImageEnhance
 
-from config import LLM_CONFIG, IMAGE_CONFIG, DECISION_METRICS
+from config import FLDConfig
 from logger import Logger
 
 logger = Logger.get_logger()
@@ -57,7 +57,7 @@ class LivenessData:
 
     def is_reliable(self) -> bool:
         """Check if the result is reliable based on confidence"""
-        return self.confidence >= DECISION_METRICS["liveness_confidence_threshold"]
+        return self.confidence >= FLDConfig.DECISION_METRICS["liveness_confidence_threshold"]
 
 
 class FaceImagePreprocessor:
@@ -113,7 +113,7 @@ class FaceImagePreprocessor:
                 y_min, y_max = int(min(y_coords)), int(max(y_coords))
 
                 # Add padding around the face
-                padding_ratio = IMAGE_CONFIG.get("face_padding_ratio", 0.2)
+                padding_ratio = FLDConfig.IMAGE_CONFIG.get("face_padding_ratio", 0.2)
                 padding_x = int((x_max - x_min) * padding_ratio)
                 padding_y = int((y_max - y_min) * padding_ratio)
 
@@ -156,8 +156,8 @@ class FaceImagePreprocessor:
 
             # Resize image
             width, height = pil_image.size
-            target_size = IMAGE_CONFIG["max_size"]
-            min_size = IMAGE_CONFIG["min_size"]
+            target_size = FLDConfig.IMAGE_CONFIG["max_size"]
+            min_size = FLDConfig.IMAGE_CONFIG["min_size"]
 
             if max(width, height) > target_size:
                 if width > height:
@@ -177,9 +177,9 @@ class FaceImagePreprocessor:
 
             # Apply enhancements
             for enhancer_class, factor in [
-                (ImageEnhance.Contrast, IMAGE_CONFIG["contrast_factor"]),
-                (ImageEnhance.Sharpness, IMAGE_CONFIG["sharpness_factor"]),
-                (ImageEnhance.Brightness, IMAGE_CONFIG["brightness_factor"])
+                (ImageEnhance.Contrast, FLDConfig.IMAGE_CONFIG["contrast_factor"]),
+                (ImageEnhance.Sharpness, FLDConfig.IMAGE_CONFIG["sharpness_factor"]),
+                (ImageEnhance.Brightness, FLDConfig.IMAGE_CONFIG["brightness_factor"])
             ]:
                 enhancer = enhancer_class(pil_image)
                 pil_image = enhancer.enhance(factor)
@@ -187,7 +187,7 @@ class FaceImagePreprocessor:
             # Save processed image
             processed_filename = f"liveness_processed_{uuid.uuid4().hex}.jpg"
             processed_path = processed_dir / processed_filename
-            pil_image.save(processed_path, quality=IMAGE_CONFIG["jpeg_quality"])
+            pil_image.save(processed_path, quality=FLDConfig.IMAGE_CONFIG["jpeg_quality"])
             logger.info(f"Processed image saved to: {processed_path}")
 
             return pil_image
@@ -201,8 +201,8 @@ class LivenessVLMClient:
     """Client for interacting with Qwen VLM for liveness detection"""
 
     def __init__(self):
-        self.base_url = LLM_CONFIG["base_url"]
-        self.model = LLM_CONFIG["model"]
+        self.base_url = FLDConfig.LLM_CONFIG["base_url"]
+        self.model = FLDConfig.LLM_CONFIG["model"]
         self._check_service_availability()
 
     def _check_service_availability(self):
@@ -220,7 +220,7 @@ class LivenessVLMClient:
     def _encode_image(self, image: Image.Image) -> str:
         """Encode PIL Image to base64 string"""
         buffer = io.BytesIO()
-        image.save(buffer, format='JPEG', quality=IMAGE_CONFIG["jpeg_quality"])
+        image.save(buffer, format='JPEG', quality=FLDConfig.IMAGE_CONFIG["jpeg_quality"])
         return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
     def analyze_liveness(self, image: Image.Image, prompt: str) -> str:
@@ -232,10 +232,12 @@ class LivenessVLMClient:
                 "prompt": prompt,
                 "images": [image_b64],
                 "stream": False,
-                "options": LLM_CONFIG["options"],
+                "options": FLDConfig.LLM_CONFIG["options"],
             }
             response = requests.post(
-                self.base_url, json=payload, timeout=LLM_CONFIG["timeout"])
+                self.base_url, json=payload,
+                timeout=FLDConfig.LLM_CONFIG["timeout"],
+            )
             response.raise_for_status()
             return response.json().get('response', '')
         except requests.exceptions.RequestException as e:

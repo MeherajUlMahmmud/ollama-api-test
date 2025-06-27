@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 import requests
 
-from config import LLM_CONFIG
+from config import QueryConfig
 from core.common.tool_registry import ToolRegistry
 from logger import Logger
 
@@ -49,7 +49,7 @@ class QueryAnalyzer:
         """
         self.logger.debug("Attempting to initialize VLM client")
         try:
-            health_url = LLM_CONFIG["base_url"].replace('/api/generate', '/api/tags')
+            health_url = QueryConfig.LLM_CONFIG["base_url"].replace('/api/generate', '/api/tags')
             self.logger.debug(f"Checking VLM service health at {health_url}")
             response = requests.get(health_url, timeout=5)
             response.raise_for_status()
@@ -98,16 +98,16 @@ class QueryAnalyzer:
 
             self.logger.debug(f"Sending request to VLM service with payload: {prompt[:100]}...")
             payload = {
-                "model": LLM_CONFIG["model"],
+                "model": QueryConfig.LLM_CONFIG["model"],
                 "prompt": prompt,
                 "stream": False,
-                "options": LLM_CONFIG["options"],
+                "options": QueryConfig.LLM_CONFIG["options"],
             }
 
             response = requests.post(
-                LLM_CONFIG["base_url"],
+                QueryConfig.LLM_CONFIG["base_url"],
                 json=payload,
-                timeout=LLM_CONFIG["timeout"]
+                timeout=QueryConfig.LLM_CONFIG["timeout"]
             )
             response.raise_for_status()
             self.logger.debug("Received response from VLM service")

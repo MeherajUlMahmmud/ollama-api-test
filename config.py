@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+
 class Config:
     # Base directories
     BASE_DIR = Path(__file__).resolve().parent
@@ -17,33 +18,93 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     DEBUG = os.environ.get('FLASK_ENV') == 'development'
 
-# LLM configuration
-LLM_CONFIG = {
-    "base_url": os.environ.get('LLM_BASE_URL') or "http://localhost:11434/api/generate",
-    "model": os.environ.get('LLM_MODEL') or "qwen2.5vl:7b",
-    "timeout": int(os.environ.get('LLM_TIMEOUT', 300)),
-    "options": {
-        "temperature": float(os.environ.get('LLM_TEMPERATURE', 0.1)),
-        "top_p": float(os.environ.get('LLM_TOP_P', 0.9)),
-        "num_predict": int(os.environ.get('LLM_NUM_PREDICT', 5000)),
-        "repeat_penalty": float(os.environ.get('LLM_REPEAT_PENALTY', 1.1)),
-    },
-}
 
-# Image processing configuration
-IMAGE_CONFIG = {
-    "max_size": int(os.environ.get('IMAGE_MAX_SIZE', 1024)),
-    "min_size": int(os.environ.get('IMAGE_MIN_SIZE', 400)),
-    "contrast_factor": float(os.environ.get('IMAGE_CONTRAST_FACTOR', 1.2)),
-    "sharpness_factor": float(os.environ.get('IMAGE_SHARPNESS_FACTOR', 1.1)),
-    "brightness_factor": float(os.environ.get('IMAGE_BRIGHTNESS_FACTOR', 1.02)),
-    "jpeg_quality": int(os.environ.get('IMAGE_JPEG_QUALITY', 95)),
-    "face_padding_ratio": float(os.environ.get('IMAGE_FACE_PADDING_RATIO', 0.3)),
-    "card_padding": int(os.environ.get('IMAGE_CARD_PADDING', 10)),
-}
+class ImageConfig:
+    MAX_SIZE: int = int(os.environ.get('IMAGE_MAX_SIZE', 1024))
+    MIN_SIZE: int = int(os.environ.get('IMAGE_MIN_SIZE', 400))
+    CONTRAST_FACTOR: int = float(os.environ.get('IMAGE_CONTRAST_FACTOR', 1.2))
+    SHARPNESS_FACTOR: int = float(os.environ.get('IMAGE_SHARPNESS_FACTOR', 1.1))
+    BRIGHTNESS_FACTOR: int = float(os.environ.get('IMAGE_BRIGHTNESS_FACTOR', 1.02)),
+    JPEG_QUALITY: int = int(os.environ.get('IMAGE_JPEG_QUALITY', 400))
 
-# Decision metrics
-DECISION_METRICS = {
-    "liveness_confidence_threshold": float(os.environ.get('LIVENESS_CONFIDENCE_THRESHOLD', 70.0)),
-    "nid_validation_fields": os.environ.get('NID_VALIDATION_FIELDS', "english_name,nid_no,date_of_birth").split(','),
-}
+
+class LLMConfig:
+    BASE_URL: str = os.environ.get('LLM_BASE_URL') or "http://localhost:11434/api/generate"
+
+
+class OCRConfig:
+    # Image processing configuration
+    IMAGE_CONFIG = {
+        "max_size": ImageConfig.MAX_SIZE,
+        "min_size": ImageConfig.MAX_SIZE,
+        "contrast_factor": ImageConfig.MAX_SIZE,
+        "sharpness_factor": ImageConfig.MAX_SIZE,
+        "brightness_factor": ImageConfig.MAX_SIZE,
+        "jpeg_quality": ImageConfig.MAX_SIZE,
+        "card_padding": int(os.environ.get('IMAGE_CARD_PADDING', 10)),
+    }
+
+    # LLM configuration
+    LLM_CONFIG = {
+        "base_url": LLMConfig.BASE_URL,
+        "model": "qwen2.5vl:7b",
+        "timeout": int(os.environ.get('LLM_TIMEOUT', 300)),
+        "options": {
+            "temperature": float(os.environ.get('LLM_TEMPERATURE', 0.1)),
+            "top_p": float(os.environ.get('LLM_TOP_P', 0.9)),
+            "num_predict": int(os.environ.get('LLM_NUM_PREDICT', 5000)),
+            "repeat_penalty": float(os.environ.get('LLM_REPEAT_PENALTY', 1.1)),
+        },
+    }
+
+    # Decision metrics
+    DECISION_METRICS = {
+        "nid_validation_fields": os.environ.get('NID_VALIDATION_FIELDS', "english_name,nid_no,date_of_birth").split(
+            ','),
+    }
+
+
+class FLDConfig:
+    # Image processing configuration
+    IMAGE_CONFIG = {
+        "max_size": ImageConfig.MAX_SIZE,
+        "min_size": ImageConfig.MAX_SIZE,
+        "contrast_factor": ImageConfig.MAX_SIZE,
+        "sharpness_factor": ImageConfig.MAX_SIZE,
+        "brightness_factor": ImageConfig.MAX_SIZE,
+        "jpeg_quality": ImageConfig.MAX_SIZE,
+        "face_padding_ratio": float(os.environ.get('IMAGE_FACE_PADDING_RATIO', 0.3)),
+    }
+
+    # LLM configuration
+    LLM_CONFIG = {
+        "base_url": LLMConfig.BASE_URL,
+        "model": "qwen2.5vl:7b",
+        "timeout": int(os.environ.get('LLM_TIMEOUT', 300)),
+        "options": {
+            "temperature": float(os.environ.get('LLM_TEMPERATURE', 0.1)),
+            "top_p": float(os.environ.get('LLM_TOP_P', 0.9)),
+            "num_predict": int(os.environ.get('LLM_NUM_PREDICT', 5000)),
+            "repeat_penalty": float(os.environ.get('LLM_REPEAT_PENALTY', 1.1)),
+        },
+    }
+
+    # Decision metrics
+    DECISION_METRICS = {
+        "liveness_confidence_threshold": float(os.environ.get('LIVENESS_CONFIDENCE_THRESHOLD', 70.0)),
+    }
+
+
+class QueryConfig:
+    # LLM configuration
+    LLM_CONFIG = {
+        "base_url": LLMConfig.BASE_URL,
+        "model": "llama3.1:8b",
+        "timeout": int(os.environ.get('LLM_TIMEOUT', 300)),
+        "options": {
+            "temperature": float(os.environ.get('LLM_TEMPERATURE', 0.1)),
+            "top_p": float(os.environ.get('LLM_TOP_P', 0.9)),
+            "num_predict": int(os.environ.get('LLM_NUM_PREDICT', 5000)),
+            "repeat_penalty": float(os.environ.get('LLM_REPEAT_PENALTY', 1.1)),
+        },
+    }

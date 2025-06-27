@@ -62,6 +62,7 @@ def register():
             )
 
         username = data['username']
+        name = data['name']
         logger.debug(f"Checking for existing user with username: {username}")
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
@@ -74,7 +75,7 @@ def register():
             )
 
         logger.debug(f"Creating new user with username: {username}")
-        new_user = User(username=username, password=data['password'])
+        new_user = User(username=username, password=data['password'], name=name)
         db.session.add(new_user)
         db.session.commit()
         logger.info(f"User {username} registered successfully")
@@ -170,9 +171,11 @@ def login():
             start_time=start_time,
             is_success=True,
             data={
-                'access_token': access_token,
-                'refresh_token': refresh_token,
-                'token_type': 'bearer'
+                'user_data': user.to_dict(),
+                'tokens': {
+                    'access_token': access_token,
+                    'refresh_token': refresh_token,
+                }
             },
             status_code=200
         )

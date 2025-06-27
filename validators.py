@@ -4,6 +4,7 @@ from schema import Schema, And, SchemaError
 def validate_registration(data):
     schema = Schema({
         'username': And(str, len, lambda x: 3 <= len(x) <= 80, error='Username must be between 3 and 80 characters'),
+        'name': And(str, len, lambda x: 3 <= len(x) <= 80, error='Name must be between 3 and 80 characters'),
         'password': And(str, len, lambda x: 8 <= len(x) <= 120, error='Password must be between 8 and 120 characters'),
     })
 

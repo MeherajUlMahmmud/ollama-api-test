@@ -4,7 +4,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -14,7 +14,7 @@ import numpy as np
 import requests
 from PIL import Image, ImageEnhance, ImageFilter
 
-from config import LLM_CONFIG, IMAGE_CONFIG, DECISION_METRICS
+from config import OCRConfig
 from logger import Logger
 
 logger = Logger.get_logger()
@@ -45,7 +45,7 @@ class NIDData:
     def is_valid(self) -> bool:
         """Check if essential fields are present"""
         essential_fields = [
-            getattr(self, field) for field in DECISION_METRICS["nid_validation_fields"]]
+            getattr(self, field) for field in OCRConfig.DECISION_METRICS["nid_validation_fields"]]
         return all(field is not None and str(field).strip() for field in essential_fields)
 
 
@@ -79,8 +79,8 @@ class ImagePreprocessor:
                     new_size, Image.Resampling.LANCZOS)
 
             for enhancer_class, factor in [
-                (ImageEnhance.Contrast, IMAGE_CONFIG["contrast_factor"]),
-                (ImageEnhance.Sharpness, IMAGE_CONFIG["sharpness_factor"])
+                (ImageEnhance.Contrast, OCRConfig.IMAGE_CONFIG["contrast_factor"]),
+                (ImageEnhance.Sharpness, OCRConfig.IMAGE_CONFIG["sharpness_factor"])
             ]:
                 enhancer = enhancer_class(pil_image)
                 pil_image = enhancer.enhance(factor)
@@ -90,7 +90,7 @@ class ImagePreprocessor:
             processed_filename = f"nid_processed_{uuid.uuid4().hex}.jpg"
             processed_path = processed_dir / processed_filename
             pil_image.save(
-                processed_path, quality=IMAGE_CONFIG["jpeg_quality"])
+                processed_path, quality=OCRConfig.IMAGE_CONFIG["jpeg_quality"])
             logger.info(f"Processed image saved to: {processed_path}")
 
             return pil_image
@@ -103,8 +103,8 @@ class VLMClient:
     """Client for interacting with Vision Language Models"""
 
     def __init__(self):
-        self.base_url = LLM_CONFIG["base_url"]
-        self.model = LLM_CONFIG["model"]
+        self.base_url = OCRConfig.LLM_CONFIG["base_url"]
+        self.model = OCRConfig.LLM_CONFIG["model"]
         self._check_service_availability()
 
     def _check_service_availability(self):
@@ -123,7 +123,7 @@ class VLMClient:
     def _encode_image(image: Image.Image) -> str:
         """Encode PIL Image to base64 string"""
         buffer = io.BytesIO()
-        image.save(buffer, format='JPEG', quality=IMAGE_CONFIG["jpeg_quality"])
+        image.save(buffer, format='JPEG', quality=OCRConfig.IMAGE_CONFIG["jpeg_quality"])
         return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
     def extract_text(self, image: Image.Image, prompt: str) -> str:
@@ -135,10 +135,10 @@ class VLMClient:
                 "prompt": prompt,
                 "images": [image_b64],
                 "stream": False,
-                "options": LLM_CONFIG["options"],
+                "options": OCRConfig.LLM_CONFIG["options"],
             }
             response = requests.post(
-                self.base_url, json=payload, timeout=LLM_CONFIG["timeout"])
+                self.base_url, json=payload, timeout=OCRConfig.LLM_CONFIG["timeout"])
             response.raise_for_status()
             return response.json().get('response', '')
         except requests.exceptions.RequestException as e:
