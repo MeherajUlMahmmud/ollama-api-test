@@ -269,7 +269,7 @@ class NIDDataExtractor:
                        '%Y-%m-%d', '%d %b %Y', '%d.%m.%Y']
             for fmt in formats:
                 parsed_date = datetime.strptime(str(dob), fmt)
-                if 1900 <= parsed_date.year <= datetime.now().year:
+                if 1900 <= parsed_date.year <= datetime.now(timezone.utc).year:
                     return True
             return False
         except ValueError:

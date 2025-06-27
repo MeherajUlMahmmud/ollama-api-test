@@ -1,16 +1,13 @@
-
+import json
 from dataclasses import dataclass, asdict
 from enum import Enum
-import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 
 class ToolType(Enum):
     """Available tool types for query processing"""
     DATABASE = "database"
     API_CALL = "api_call"
-    NID_OCR = "nid_ocr"
-    LIVENESS_CHECK = "liveness_check"
     GENERAL_INFO = "general_info"
     CALCULATION = "calculation"
 
@@ -23,8 +20,9 @@ class Tool:
     description: str
     parameters: Dict[str, Any]
     endpoint: Optional[str] = None
+    tags: List[str] = None
 
-
+@dataclass()
 class QueryResult:
     """Result of query processing"""
     success: bool
@@ -32,7 +30,6 @@ class QueryResult:
     raw_response: Any
     formatted_response: str
     execution_time: float
-    confidence: float
     error_message: Optional[str] = None
 
     def to_json(self) -> str:

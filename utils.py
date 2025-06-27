@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 
 from flask import jsonify
 from werkzeug.datastructures import FileStorage
 
+from config import Config
 from logger import Logger
 
 logger = Logger.get_logger()
@@ -22,7 +24,7 @@ class Helper:
             str: The formatted time taken.
         """
 
-        time_taken = datetime.now() - start_time
+        time_taken = datetime.now(timezone.utc) - start_time
         if time_taken.total_seconds() < 1:
             return f"{time_taken.total_seconds() * 1000:.2f} milliseconds"
         elif time_taken.total_seconds() < 60:
@@ -62,10 +64,16 @@ class Helper:
         return ext.lower() in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
 
     @staticmethod
-    def api_response(message, start_time, is_success=True, data={}, status_code=200):
-        return jsonify({
-            "data": data,
-            "message": message,
-            "is_success": is_success,
-            "time_taken": Helper.format_time_taken(start_time),
-        }), status_code
+    def get_date_trace_path(trace_id: str, date_str: str, time_str: str, subfolder: str) -> Path:
+        return Config.UPLOAD_DIR / date_str / f"{time_str}_{trace_id}" / subfolder
+
+    @staticmethod
+    def api_response(message, start_time, is_success, data=None, status_code=200):
+        response = {
+            'message': message,
+            'success': is_success,
+            'duration_ms': (datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
+        }
+        if data:
+            response['data'] = data
+        return jsonify(response), status_code
