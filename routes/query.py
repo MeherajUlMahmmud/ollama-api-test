@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from core.common.query_analyzer import QueryAnalyzer
 from core.common.query_executor import QueryExecutor
-from core.query_handler import QueryHandler
+from core.services.query_handler import QueryHandler
 from logger import Logger
 from token_auth import token_required
 from utils import Helper
@@ -42,9 +42,10 @@ def query():
     start_time = datetime.now(timezone.utc)
     logger.info(f"Received POST request to /query endpoint from user_id: {request.user_id}")
 
+    data = request.get_json()
+
     try:
         logger.debug("Parsing JSON payload from request")
-        data = request.get_json()
         if not data:
             logger.warning("No JSON payload provided in request")
             return Helper.api_response(

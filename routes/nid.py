@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, request
 
-from core.nid import NIDDataExtractor
+from core.services.nid import NIDDataExtractor
 from logger import Logger
 from token_auth import token_required
 from utils import Helper
